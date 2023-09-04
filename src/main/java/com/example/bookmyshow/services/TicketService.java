@@ -1,0 +1,95 @@
+package com.example.bookmyshow.services;
+
+
+import com.example.bookmyshow.exceptions.SeatNotAvailableException;
+import com.example.bookmyshow.exceptions.UserNotFoundException;
+import com.example.bookmyshow.models.SeatInShow;
+import com.example.bookmyshow.models.Ticket;
+import com.example.bookmyshow.models.User;
+import com.example.bookmyshow.models.enums.SeatStatus;
+import com.example.bookmyshow.repositories.SeatInShowRepository;
+import com.example.bookmyshow.repositories.TicketRepository;
+import com.example.bookmyshow.repositories.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Optional;
+
+@Service
+public class TicketService {
+    private TicketRepository ticketRepository;
+    private UserRepository userRepository;
+    private SeatInShowRepository seatInShowRepository;
+
+    @Autowired
+    public TicketService(TicketRepository ticketRepository, UserRepository userRepository, SeatInShowRepository seatInShowRepository){
+        this.ticketRepository = ticketRepository;
+        this.userRepository = userRepository;
+        this.seatInShowRepository = seatInShowRepository;
+    }
+
+    public Ticket bookTicket(List<Long> seatInAShowIds, Long userId) throws SeatNotAvailableException, UserNotFoundException {
+        // 1. Fetch seatInShows
+        // 2. Check if seats are available
+        // 3. Fetch user
+        // 4.1 Yes => Lock seats, make dummy ticket and return
+        // 4.2 No => Throw and exception
+
+        List<SeatInShow> seats = seatInShowRepository.findAllById(seatInAShowIds);
+        for(SeatInShow seat: seats){
+            if(IsAvailable(seat) == false){
+                throw new SeatNotAvailableException();
+            }
+        }
+
+        Optional<User> userOptional = userRepository.findById(userId);
+        if(userOptional.isEmpty()){
+            throw new UserNotFoundException();
+        }
+        User bookedBy = userOptional.get();
+
+        List<SeatInShow> updatedSeats = new ArrayList<>();
+        Date current = new Date();
+        for(SeatInShow seat: seats){
+            seat.setSeatStatus(SeatStatus.Locked);
+            seat.setLockedAt(current);
+            seat = seatInShowRepository.save(seat);
+            updatedSeats.add(seat);
+        }
+
+        Ticket ticket = new Ticket();
+        ticket.setBookedBy(bookedBy);
+        ticket.setBookingTime(current);
+        ticket.setSelectedSeats(updatedSeats);
+        ticket.setAmount(0); // hit SeatTypeInShow repository for calculating amount
+        Ticket savedTicket = ticketRepository.save(ticket);
+
+        return savedTicket;
+    }
+
+    private boolean IsAvailable(SeatInShow seat){
+        if(seat.getSeatStatus().equals(SeatStatus.Available)){
+            return true;
+        } else if(seat.getSeatStatus().equals(SeatStatus.Locked)){
+            // logic
+            // 9:10 pm on 23rd Aug 2023
+            long lockedAt = seat.getLockedAt().getTime();
+            long current = System.currentTimeMillis();
+
+            long duration = current - lockedAt;
+            long durationInSeconds = duration / 1000;
+            long durationInMinutes = durationInSeconds/60;
+
+            if(durationInMinutes >= 10){
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        return false;
+    }
+}
