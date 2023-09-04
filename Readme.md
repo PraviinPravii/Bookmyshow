@@ -7,10 +7,7 @@ Welcome to the Bookmyshow Spring Boot backend application! This application serv
 - [Features](#features)
 - [Design Pattern](#design-pattern)
 - [Database Connection](#database-connection)
-- [Getting Started](#getting-started)
-- [Usage](#usage)
-- [Contributing](#contributing)
-- [License](#license)
+
 
 ## Introduction
 
